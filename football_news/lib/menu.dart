@@ -146,13 +146,12 @@ class ItemCard extends StatelessWidget {
         // Aksi ketika kartu ditekan.
         onTap: () {
           // Menampilkan pesan SnackBar saat kartu ditekan.
-          ScaffoldMessenger.of(context)
-            .hideCurrentSnackBar()
-            .showSnackBar(
-              SnackBar(
-                content: Text("Kamu telah menekan tombol ${item.name}!"),
-              ),
-            );
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Kamu telah menekan tombol ${item.name}!"),
+            ),
+          );
         },
 
         // Container untuk menyimpan Icon dan Text
