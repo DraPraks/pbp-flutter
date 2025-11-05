@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:football_news/menu.dart';
+import 'package:football_news/screens/menu.dart';
 
 void main() {
   runApp(const MyApp());
@@ -9,8 +9,7 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context) => MaterialApp(
       title: 'Football News',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blue).copyWith(
@@ -20,5 +19,4 @@ class MyApp extends StatelessWidget {
       ),
       home: MyHomePage(),
     );
-  }
 }
