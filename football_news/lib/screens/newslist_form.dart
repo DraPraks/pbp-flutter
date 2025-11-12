@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:football_news/widgets/left_drawer.dart';
+import 'package:football_news/screens/menu.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 
 class NewsFormPage extends StatefulWidget {
   const NewsFormPage({super.key});
@@ -11,8 +15,19 @@ class NewsFormPage extends StatefulWidget {
 class _NewsFormPageState extends State<NewsFormPage> {
   final _formKey = GlobalKey<FormState>();
   String _title = '';
-  String _description = '';
-  int _rating = 1;
+  String _content = '';
+  String _category = 'GENERAL';
+  String _thumbnail = '';
+  bool _isFeatured = false;
+
+  final List<String> _categories = [
+    'GENERAL',
+    'PREMIER_LEAGUE',
+    'LA_LIGA',
+    'SERIE_A',
+    'BUNDESLIGA',
+    'LIGUE_1',
+  ];
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -60,20 +75,21 @@ class _NewsFormPageState extends State<NewsFormPage> {
                 padding: const EdgeInsets.all(8),
                 child: TextFormField(
                   decoration: InputDecoration(
-                    hintText: 'Description',
-                    labelText: 'Description',
+                    hintText: 'Content',
+                    labelText: 'Content',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(5),
                     ),
                   ),
+                  maxLines: 5,
                   onChanged: (value) {
                     setState(() {
-                      _description = value;
+                      _content = value;
                     });
                   },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Description cannot be empty!';
+                      return 'Content cannot be empty!';
                     }
                     return null;
                   },
@@ -81,30 +97,55 @@ class _NewsFormPageState extends State<NewsFormPage> {
               ),
               Padding(
                 padding: const EdgeInsets.all(8),
-                child: TextFormField(
+                child: DropdownButtonFormField<String>(
+                  value: _category,
                   decoration: InputDecoration(
-                    hintText: 'Rating',
-                    labelText: 'Rating',
+                    labelText: 'Category',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(5),
                     ),
                   ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) {
+                  items: _categories.map((String category) {
+                    return DropdownMenuItem<String>(
+                      value: category,
+                      child: Text(category.replaceAll('_', ' ')),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
                     setState(() {
-                      _rating = int.tryParse(value) ?? 1;
+                      _category = newValue!;
                     });
                   },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Rating cannot be empty!';
-                    }
-                    final rating = int.tryParse(value);
-                    if (rating == null || rating < 1 || rating > 5) {
-                      return 'Rating must be between 1 and 5!';
-                    }
-                    return null;
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: TextFormField(
+                  decoration: InputDecoration(
+                    hintText: 'Thumbnail URL (optional)',
+                    labelText: 'Thumbnail URL',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _thumbnail = value;
+                    });
                   },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: CheckboxListTile(
+                  title: const Text('Featured News'),
+                  value: _isFeatured,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      _isFeatured = value ?? false;
+                    });
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
                 ),
               ),
               Padding(
@@ -114,34 +155,94 @@ class _NewsFormPageState extends State<NewsFormPage> {
                     backgroundColor:
                         WidgetStateProperty.all(Colors.indigo),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     if (_formKey.currentState!.validate()) {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                            title: const Text('News Saved Successfully'),
-                            content: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text('Title: $_title'),
-                                  Text('Description: $_description'),
-                                  Text('Rating: $_rating'),
+                      final request = context.read<CookieRequest>();
+                      
+                      // Show loading indicator
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+
+                      try {
+                        // Send data as JSON to Django
+                        final response = await request.postJson(
+                          'http://localhost:8000/create-flutter/',
+                          jsonEncode({
+                            'title': _title,
+                            'content': _content,
+                            'category': _category,
+                            'thumbnail': _thumbnail,
+                            'is_featured': _isFeatured,
+                          }),
+                        );
+
+                        if (context.mounted) {
+                          // Close loading dialog
+                          Navigator.pop(context);
+
+                          if (response['status'] == 'success') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('News successfully created!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MyHomePage(),
+                              ),
+                            );
+                          } else {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Failed to Create News'),
+                                content: Text(response['message'] ?? 'Unknown error occurred'),
+                                actions: [
+                                  TextButton(
+                                    child: const Text('OK'),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                    },
+                                  ),
                                 ],
                               ),
-                            ),
-                            actions: [
-                              TextButton(
-                                child: const Text('OK'),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          // Close loading dialog
+                          Navigator.pop(context);
+
+                          // Show error dialog
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Error'),
+                              content: Text(
+                                'Failed to create news: ${e.toString()}\n\nPlease check:\n• Is the server running?\n• Are you logged in?',
                               ),
-                            ],
-                          ),
-                      );
-                      _resetForm();
+                              actions: [
+                                TextButton(
+                                  child: const Text('OK'),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      }
                     }
                   },
                   child: const Text(
@@ -155,13 +256,5 @@ class _NewsFormPageState extends State<NewsFormPage> {
         ),
       ),
     );
-
-  void _resetForm() {
-    _formKey.currentState!.reset();
-    setState(() {
-      _title = '';
-      _description = '';
-      _rating = 1;
-    });
-  }
 }
+
